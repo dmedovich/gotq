@@ -1,0 +1,141 @@
+{
+  "syntaxVersion": "v1",
+  "cases": [
+    {
+      "name": "empty query",
+      "values": {},
+      "accept": true
+    },
+    {
+      "name": "precedence and string comparison",
+      "values": {"filter": ["active eq true or age gte 18 and name contains 'ann'"]},
+      "accept": true
+    },
+    {
+      "name": "sets nulls and unary not",
+      "values": {"filter": ["not status in ('blocked','deleted') and deletedAt is null"]},
+      "accept": true
+    },
+    {
+      "name": "canonical pagination and sort",
+      "values": {"sort": ["-createdAt,name"], "limit": ["20"], "offset": ["40"], "count": ["true"], "search": ["ann"]},
+      "accept": true
+    },
+    {
+      "name": "cursor transport syntax",
+      "values": {"sort": ["-createdAt,name"], "limit": ["20"], "cursor": ["eyJ2IjoxfQ"]},
+      "accept": true
+    },
+    {
+      "name": "opt-in compatibility aliases",
+      "values": {"orderby": ["createdAt desc,name asc"], "top": ["20"], "skip": ["40"]},
+      "compatibilityAliases": true,
+      "accept": true
+    },
+    {
+      "name": "unknown handler parameter",
+      "values": {"locale": ["en"]},
+      "accept": true
+    },
+    {
+      "name": "to-one relationship path",
+      "values": {"filter": ["company/country/code eq 'US'"], "sort": ["company/name"]},
+      "accept": true
+    },
+    {
+      "name": "nested collection quantifiers",
+      "values": {"filter": ["orders/any(o: o/items/any(i: i/price gte 10))"]},
+      "accept": true
+    },
+    {
+      "name": "collection all",
+      "values": {"filter": ["orders/all(o: o/status eq 'paid')"]},
+      "accept": true
+    },
+    {
+      "name": "duplicate known parameter",
+      "values": {"filter": ["age eq 1", "age eq 2"]},
+      "accept": false,
+      "errorCode": "invalid_parameter",
+      "parameter": "filter"
+    },
+    {
+      "name": "unknown comparison operator",
+      "values": {"filter": ["age wat 18"]},
+      "accept": false,
+      "errorCode": "invalid_syntax",
+      "parameter": "filter"
+    },
+    {
+      "name": "invalid token",
+      "values": {"filter": ["age eq @"]},
+      "accept": false,
+      "errorCode": "invalid_token",
+      "parameter": "filter"
+    },
+    {
+      "name": "empty in list",
+      "values": {"filter": ["id in ()"]},
+      "accept": false,
+      "errorCode": "invalid_syntax",
+      "parameter": "filter"
+    },
+    {
+      "name": "non-canonical integer",
+      "values": {"limit": ["01"]},
+      "accept": false,
+      "errorCode": "invalid_parameter",
+      "parameter": "limit"
+    },
+    {
+      "name": "invalid boolean parameter",
+      "values": {"count": ["True"]},
+      "accept": false,
+      "errorCode": "invalid_parameter",
+      "parameter": "count"
+    },
+    {
+      "name": "invalid cursor alphabet",
+      "values": {"cursor": ["not+base64"]},
+      "accept": false,
+      "errorCode": "invalid_cursor",
+      "parameter": "cursor"
+    },
+    {
+      "name": "cursor and offset conflict",
+      "values": {"cursor": ["eyJ2IjoxfQ"], "offset": ["0"]},
+      "accept": false,
+      "errorCode": "invalid_parameter",
+      "parameter": "cursor"
+    },
+    {
+      "name": "repeated sort field",
+      "values": {"sort": ["name,-name"]},
+      "accept": false,
+      "errorCode": "invalid_parameter",
+      "parameter": "sort"
+    },
+    {
+      "name": "alias conflicts with canonical name",
+      "values": {"sort": ["name"], "orderby": ["name asc"]},
+      "compatibilityAliases": true,
+      "accept": false,
+      "errorCode": "invalid_parameter",
+      "parameter": "sort"
+    },
+    {
+      "name": "relationship path whitespace",
+      "values": {"filter": ["company/ name eq 'Acme'"]},
+      "accept": false,
+      "errorCode": "invalid_syntax",
+      "parameter": "filter"
+    },
+    {
+      "name": "quantifier colon whitespace",
+      "values": {"filter": ["orders/any(o:o/total gt 1)"]},
+      "accept": false,
+      "errorCode": "invalid_syntax",
+      "parameter": "filter"
+    }
+  ]
+}

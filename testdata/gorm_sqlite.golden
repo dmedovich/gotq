@@ -1,0 +1,1 @@
+SELECT * FROM `schema_test_users` WHERE `age` > ? AND `name` LIKE ? ESCAPE '!' ORDER BY CASE WHEN `created_at` IS NULL THEN 1 ELSE 0 END ASC,`created_at` DESC LIMIT 20 OFFSET 5

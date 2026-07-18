@@ -1,0 +1,172 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing semantic-version tag to release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  verify:
+    name: verify release candidate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: gotq
+          POSTGRES_USER: gotq
+          POSTGRES_PASSWORD: gotq
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gotq -d gotq"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: gotq
+          MYSQL_USER: gotq
+          MYSQL_PASSWORD: gotq
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -uroot -proot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.5'
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            examples/frameworks/go.sum
+            examples/production/go.sum
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Resolve and validate tag
+        id: tag
+        env:
+          REQUESTED_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if [[ ! "$REQUESTED_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::release tag must be semantic version vMAJOR.MINOR.PATCH[-PRERELEASE]"
+            exit 1
+          fi
+          git rev-parse --verify "refs/tags/$REQUESTED_TAG"
+          echo "tag=$REQUESTED_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Verify release candidate
+        env:
+          GOTQ_POSTGRES_DSN: host=127.0.0.1 user=gotq password=gotq dbname=gotq port=5432 sslmode=disable
+          GOTQ_MYSQL_DSN: gotq:gotq@tcp(127.0.0.1:3306)/gotq?charset=utf8mb4&parseTime=True&loc=UTC
+        run: |
+          go mod verify
+          go mod tidy -diff
+          go vet ./...
+          go test -race ./...
+
+      - name: Verify formatting
+        run: |
+          files=$(gofmt -l .)
+          if [[ -n "$files" ]]; then
+            echo "::error::gofmt required for these files"
+            echo "$files"
+            exit 1
+          fi
+
+      - name: Install pinned API diff tool
+        run: go install golang.org/x/exp/cmd/apidiff@v0.0.0-20250620022241-b7579e27df2b
+
+      - name: Verify reviewed public API diff
+        run: scripts/check-api-compat.sh
+
+      - name: Verify framework examples
+        working-directory: examples/frameworks
+        run: |
+          go mod download
+          go mod verify
+          go test ./...
+
+      - name: Verify application examples
+        working-directory: examples/production
+        run: |
+          go mod download
+          go mod verify
+          go mod tidy -diff
+          go test -race ./...
+
+      - name: Fuzz maintained protocol targets
+        run: |
+          go test -run='^$' -fuzz=FuzzFilterLexer -fuzztime=10s -parallel=1
+          go test -run='^$' -fuzz=FuzzFilterParser -fuzztime=10s -parallel=1
+          go test -run='^$' -fuzz=FuzzQueryPipeline -fuzztime=10s -parallel=1
+          go test -run='^$' -fuzz=FuzzRelationshipPipeline -fuzztime=10s -parallel=1
+          go test -run='^$' -fuzz=FuzzCursorPipeline -fuzztime=10s -parallel=1
+
+      - name: Scan Go dependencies and reachable code
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-input: '1.26.5'
+          check-latest: false
+          go-package: ./...
+          cache-dependency-path: go.sum
+
+      - name: Verify documentation site
+        working-directory: website
+        env:
+          NO_UPDATE_NOTIFIER: 1
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=moderate
+          npm run build
+
+  publish:
+    name: publish GitHub release
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.verify.outputs.tag }}
+        run: |
+          flags=(--verify-tag --generate-notes --title "$TAG")
+          if [[ "$TAG" == *-* ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$TAG" --repo "$GH_REPO" "${flags[@]}"

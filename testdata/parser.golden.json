@@ -1,0 +1,37 @@
+[
+  {
+    "name": "comparison",
+    "input": "age gt 18",
+    "tree": "age gt 18"
+  },
+  {
+    "name": "and before or",
+    "input": "a eq 1 or b eq 2 and c eq 3",
+    "tree": "(a eq 1 or (b eq 2 and c eq 3))"
+  },
+  {
+    "name": "or left associative",
+    "input": "a eq 1 or b eq 2 or c eq 3",
+    "tree": "((a eq 1 or b eq 2) or c eq 3)"
+  },
+  {
+    "name": "parentheses",
+    "input": "(a eq 1 or b eq 2) and c eq 3",
+    "tree": "((a eq 1 or b eq 2) and c eq 3)"
+  },
+  {
+    "name": "whitespace",
+    "input": "  age\tgt\t18  ",
+    "tree": "age gt 18"
+  },
+  {
+    "name": "set and null predicates",
+    "input": "id in (1, 2, 3) and deletedAt is null",
+    "tree": "(id in (1,2,3) and deletedAt is null)"
+  },
+  {
+    "name": "unary not",
+    "input": "not (active eq true or name startswith 'bot')",
+    "tree": "not (active eq true or name startswith 'bot')"
+  }
+]

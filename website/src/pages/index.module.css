@@ -1,0 +1,86 @@
+.hero {
+  padding: 6rem 0 5rem;
+  background:
+    radial-gradient(900px 420px at 85% -5%, rgb(21 170 191 / 20%), transparent 65%),
+    radial-gradient(700px 360px at 5% 10%, rgb(11 114 133 / 12%), transparent 60%);
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+}
+
+.heroGrid {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 3.5rem;
+  align-items: center;
+}
+
+.eyebrow {
+  color: var(--gotq-accent);
+  font-size: 0.82rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+}
+
+.title {
+  font-size: clamp(3rem, 6vw, 5.25rem);
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+  margin: 0 0 1.5rem;
+}
+
+.subtitle {
+  color: var(--ifm-color-emphasis-700);
+  font-size: 1.22rem;
+  line-height: 1.65;
+  max-width: 40rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 2rem;
+}
+
+.code {
+  min-width: 0;
+}
+
+.features {
+  padding: 4rem 0 5rem;
+}
+
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.25rem;
+}
+
+.card {
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 14px;
+  padding: 1.6rem;
+}
+
+.card h2 {
+  font-size: 1.2rem;
+  margin: 0 0 0.6rem;
+}
+
+.card p {
+  color: var(--ifm-color-emphasis-700);
+  margin: 0;
+}
+
+@media (max-width: 996px) {
+  .hero {
+    padding: 4rem 0;
+  }
+
+  .heroGrid,
+  .featureGrid {
+    grid-template-columns: 1fr;
+  }
+}

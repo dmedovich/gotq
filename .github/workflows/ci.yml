@@ -1,0 +1,298 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    name: test (Go ${{ matrix.go }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ['1.23.12', '1.25.12', '1.26.5']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Download and verify modules
+        run: |
+          go mod download
+          go mod verify
+
+      - name: Test with race detector
+        run: go test -race -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Enforce coverage floor
+        run: |
+          coverage=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')
+          awk -v coverage="$coverage" 'BEGIN {
+            if (coverage + 0 < 85.0) {
+              printf "coverage %.1f%% is below the 85.0%% floor\n", coverage
+              exit 1
+            }
+          }'
+
+      - name: Upload coverage
+        if: matrix.go == '1.26.5'
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage.out
+          if-no-files-found: error
+          retention-days: 14
+
+  quality:
+    name: formatting, vet, modules, cross-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.5'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Check formatting
+        run: |
+          files=$(gofmt -l .)
+          if [[ -n "$files" ]]; then
+            echo "::error::gofmt required for these files"
+            echo "$files"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Check module files
+        run: go mod tidy -diff
+
+      - name: Build
+        run: go build ./...
+
+      - name: Cross-build 32-bit library
+        env:
+          CGO_ENABLED: 0
+          GOOS: linux
+          GOARCH: '386'
+        run: go build ./...
+
+  framework-examples:
+    name: framework examples (no core dependencies)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.23.12'
+          cache: true
+          cache-dependency-path: examples/frameworks/go.sum
+
+      - name: Verify core has no framework dependencies
+        run: |
+          go mod download
+          if go list -m all | grep -E 'gin-gonic|gofiber|labstack/echo'; then
+            echo "::error::HTTP framework dependency leaked into the core module"
+            exit 1
+          fi
+
+      - name: Test framework examples
+        working-directory: examples/frameworks
+        run: |
+          go mod download
+          go mod verify
+          go test ./...
+
+  application-examples:
+    name: application examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.5'
+          cache: true
+          cache-dependency-path: examples/production/go.sum
+
+      - name: Test tenant and relationship examples
+        working-directory: examples/production
+        run: |
+          go mod download
+          go mod verify
+          go mod tidy -diff
+          go test -race ./...
+
+  api-compatibility:
+    name: public API compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.5'
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Install pinned API diff tool
+        run: go install golang.org/x/exp/cmd/apidiff@v0.0.0-20250620022241-b7579e27df2b
+
+      - name: Verify reviewed public API diff
+        run: scripts/check-api-compat.sh
+
+  documentation:
+    name: documentation build and audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Build documentation site
+        working-directory: website
+        env:
+          NO_UPDATE_NOTIFIER: 1
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=moderate
+          npm run build
+
+  fuzz-smoke:
+    name: fuzz smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.5'
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Fuzz lexer
+        run: go test -run='^$' -fuzz=FuzzFilterLexer -fuzztime=10s -parallel=1
+      - name: Fuzz parser
+        run: go test -run='^$' -fuzz=FuzzFilterParser -fuzztime=10s -parallel=1
+      - name: Fuzz bound query pipeline
+        run: go test -run='^$' -fuzz=FuzzQueryPipeline -fuzztime=10s -parallel=1
+      - name: Fuzz relationship query pipeline
+        run: go test -run='^$' -fuzz=FuzzRelationshipPipeline -fuzztime=10s -parallel=1
+      - name: Fuzz cursor query pipeline
+        run: go test -run='^$' -fuzz=FuzzCursorPipeline -fuzztime=10s -parallel=1
+
+  dialect-integration:
+    name: PostgreSQL and MySQL integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: gotq
+          POSTGRES_USER: gotq
+          POSTGRES_PASSWORD: gotq
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gotq -d gotq"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: gotq
+          MYSQL_USER: gotq
+          MYSQL_PASSWORD: gotq
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -uroot -proot"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.5'
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Run real-dialect conformance
+        env:
+          GOTQ_POSTGRES_DSN: host=127.0.0.1 user=gotq password=gotq dbname=gotq port=5432 sslmode=disable
+          GOTQ_MYSQL_DSN: gotq:gotq@tcp(127.0.0.1:3306)/gotq?charset=utf8mb4&parseTime=True&loc=UTC
+        run: go test -run='^TestExternal(Relationship)?DialectIntegration$' -count=1 ./...
+
+  vulnerability-scan:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Scan Go dependencies and reachable code
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-input: '1.26.5'
+          check-latest: false
+          go-package: ./...
+          cache-dependency-path: go.sum
+
+  dependency-review:
+    name: dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@v4
