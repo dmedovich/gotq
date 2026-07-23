@@ -5,7 +5,7 @@ go 1.23
 require (
 	github.com/dmedovich/gotq v0.0.0
 	github.com/gin-gonic/gin v1.10.0
-	github.com/gofiber/fiber/v2 v2.52.6
+	github.com/gofiber/fiber/v2 v2.52.14
 	github.com/labstack/echo/v4 v4.13.3
 )
 
