@@ -1,6 +1,6 @@
 module github.com/dmedovich/gotq/examples/production
 
-go 1.23
+go 1.25.0
 
 require (
 	github.com/dmedovich/gotq v0.0.0
@@ -12,7 +12,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/text v0.39.0 // indirect
 )
 
 replace github.com/dmedovich/gotq => ../..
