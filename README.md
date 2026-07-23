@@ -21,7 +21,7 @@ relationships, and operators explicitly enabled by the endpoint.
 go get github.com/dmedovich/gotq
 ```
 
-gotq requires Go 1.23 or newer.
+gotq requires Go 1.25 or newer.
 
 ## Quick start
 
