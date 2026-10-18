@@ -98,6 +98,7 @@ type Query struct {
 	filterSource string
 	sortSource   string
 	limits       Limits
+	queryBytes   int // Original decoded HTTP size, including application-owned parameters.
 }
 
 // Limits bounds client-controlled query complexity.

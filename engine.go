@@ -19,6 +19,9 @@ type Config[T any] struct {
 	DefaultLimit int
 	MaxLimit     int
 	MaxOffset    int
+	// DefaultSort uses the HTTP sort syntax and applies only when Query.Sort is
+	// empty. New validates it against the endpoint policy and sort limits.
+	DefaultSort string
 
 	MaxSortTerms       int
 	MaxSearchBytes     int
@@ -36,15 +39,18 @@ type Config[T any] struct {
 	AllowCount                bool
 	AllowCompatibilityAliases bool
 	Search                    SearchFunc
+	// Observe optionally records List phases without exposing query contents.
+	Observe ObserverFunc
 }
 
 // Engine parses, validates, applies, and optionally executes list queries for
 // T. It is immutable after New returns and safe for concurrent use.
 type Engine[T any] struct {
-	db     *gorm.DB
-	schema *ModelSchema[T]
-	config Config[T]
-	limits Limits
+	db          *gorm.DB
+	schema      *ModelSchema[T]
+	config      Config[T]
+	limits      Limits
+	defaultSort []validatedOrder
 }
 
 // Session is a request-local engine view using a caller-owned base scope.
@@ -153,7 +159,19 @@ func New[T any](db *gorm.DB, config Config[T]) (*Engine[T], error) {
 	limits.MaxPathDepth = config.MaxPathDepth
 	limits.MaxQuantifierDepth = config.MaxQuantifierDepth
 	limits.MaxCursorBytes = config.MaxCursorBytes
-	return &Engine[T]{db: db, schema: schema, config: config, limits: limits}, nil
+	var defaultSort []validatedOrder
+	if config.DefaultSort != "" {
+		terms, sortErr := parseSort(config.DefaultSort, limits.MaxSortTerms, limits.MaxPathDepth)
+		if sortErr != nil {
+			return nil, schemaError("invalid default sort: "+sortErr.Message, "sort")
+		}
+		plan, sortErr := validateQuery(schema, Query{Sort: terms, limits: limits, sortSource: config.DefaultSort})
+		if sortErr != nil {
+			return nil, schemaError("invalid default sort: "+sortErr.Message, "sort")
+		}
+		defaultSort = plan.sort
+	}
+	return &Engine[T]{db: db, schema: schema, config: config, limits: limits, defaultSort: defaultSort}, nil
 }
 
 // From returns a session that preserves base for data and count queries.
@@ -175,6 +193,7 @@ func (e *Engine[T]) Parse(values url.Values) (Query, error) {
 }
 
 // Apply validates q and returns a derived GORM scope without executing it.
+// The engine's limits always apply; stricter limits from q's parser are retained.
 func (e *Engine[T]) Apply(ctx context.Context, base *gorm.DB, q Query) (*gorm.DB, error) {
 	if e == nil {
 		return nil, schemaError("engine is nil", "")
@@ -210,12 +229,16 @@ func (s Session[T]) List(ctx context.Context, values url.Values) (Page[T], error
 	return s.engine.list(ctx, s.base, values)
 }
 
-func (e *Engine[T]) list(ctx context.Context, base *gorm.DB, values url.Values) (Page[T], error) {
+func (e *Engine[T]) list(ctx context.Context, base *gorm.DB, values url.Values) (page Page[T], err error) {
+	started := e.observationStart()
 	q, err := e.Parse(values)
+	e.observe(ctx, PhaseParse, started, err)
 	if err != nil {
 		return Page[T]{}, err
 	}
+	started = e.observationStart()
 	validated, err := e.validate(q)
+	e.observe(ctx, PhaseValidate, started, err)
 	if err != nil {
 		return Page[T]{}, err
 	}
@@ -227,24 +250,22 @@ func (e *Engine[T]) list(ctx context.Context, base *gorm.DB, values url.Values) 
 	if validated.offset != nil {
 		offset = *validated.offset
 	}
-	page := Page[T]{
+	page = Page[T]{
 		Items: make([]T, 0),
 		Page:  PageInfo{Limit: limit, Offset: offset},
 	}
 	if validated.count != nil && *validated.count {
-		countScope, scopeErr := e.applyValidated(ctx, base, validated, false, false)
-		if scopeErr != nil {
-			return Page[T]{}, scopeErr
-		}
-		var total int64
-		if dbErr := countScope.Count(&total).Error; dbErr != nil {
-			return Page[T]{}, executionError("failed to count query results", dbErr)
+		total, countErr := e.count(ctx, base, validated)
+		if countErr != nil {
+			return Page[T]{}, countErr
 		}
 		page.Total = &total
 	}
 	if limit == 0 {
 		return page, nil
 	}
+	started = e.observationStart()
+	defer func() { e.observe(ctx, PhaseData, started, err) }()
 	dataPlan := *validated
 	fetchLimit := limit + 1
 	dataPlan.limit = &fetchLimit
@@ -257,7 +278,7 @@ func (e *Engine[T]) list(ctx context.Context, base *gorm.DB, values url.Values) 
 	if orderErr != nil {
 		return Page[T]{}, orderErr
 	}
-	items, cursorKeys, dbErr := findCursorRows[T](dataScope, e.schema.modelSchema, orders)
+	items, cursorKeys, dbErr := findCursorRows[T](dataScope, e.schema.modelSchema, orders, limit)
 	if dbErr != nil {
 		return Page[T]{}, executionError("failed to load query results", dbErr)
 	}
@@ -265,7 +286,7 @@ func (e *Engine[T]) list(ctx context.Context, base *gorm.DB, values url.Values) 
 	if len(page.Items) > limit {
 		page.Items = page.Items[:limit]
 		page.Page.HasMore = true
-		next, cursorErr := encodeCursor(e.schema.modelSchema, orders, cursorKeys[limit-1], e.limits.MaxCursorBytes)
+		next, cursorErr := encodeCursor(e.schema.modelSchema, orders, cursorKeys, e.limits.MaxCursorBytes)
 		if cursorErr != nil {
 			return Page[T]{}, executionError("failed to encode next cursor", cursorErr)
 		}
@@ -274,10 +295,41 @@ func (e *Engine[T]) list(ctx context.Context, base *gorm.DB, values url.Values) 
 	return page, nil
 }
 
+func (e *Engine[T]) count(ctx context.Context, base *gorm.DB, validated *validatedQuery) (total int64, err error) {
+	started := e.observationStart()
+	defer func() { e.observe(ctx, PhaseCount, started, err) }()
+	scope, err := e.applyValidated(ctx, base, validated, false, false)
+	if err != nil {
+		return 0, err
+	}
+	if err := scope.Count(&total).Error; err != nil {
+		return 0, executionError("failed to count query results", err)
+	}
+	return total, nil
+}
+
 func (e *Engine[T]) validate(q Query) (*validatedQuery, error) {
+	parserLimits := q.limits
+	q.limits = intersectLimits(e.limits, parserLimits)
+	if q.queryBytes > q.limits.MaxQueryBytes {
+		return nil, queryValidationError(CodeLimitExceeded, "query", "", 0, fmt.Sprintf("decoded query must not exceed %d bytes", q.limits.MaxQueryBytes), "")
+	}
+	if len(q.filterSource) > q.limits.MaxFilterBytes {
+		return nil, queryValidationError(CodeLimitExceeded, "filter", q.filterSource, q.limits.MaxFilterBytes, fmt.Sprintf("filter must not exceed %d bytes", q.limits.MaxFilterBytes), "")
+	}
+	// Only a query crossing into a stricter endpoint needs its original tokens
+	// checked again. AST limits below also cover manually built or edited queries.
+	if q.filterSource != "" && q.limits.MaxTokens < parserLimits.MaxTokens {
+		if _, err := lexFilterWithLimits(q.filterSource, q.limits); err != nil {
+			return nil, err
+		}
+	}
 	validated, err := validateQuery(e.schema, q)
 	if err != nil {
 		return nil, err
+	}
+	if len(q.Sort) == 0 {
+		validated.sort = e.defaultSort
 	}
 	if validated.count != nil && *validated.count && !e.config.AllowCount {
 		return nil, queryValidationError(CodeInvalidParameter, "count", "true", 0, "count is not enabled for this endpoint", "")

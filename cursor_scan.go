@@ -40,7 +40,7 @@ func (sql cursorSelectSQL) Build(builder clause.Builder) {
 	}
 }
 
-func findCursorRows[T any](scope *gorm.DB, model *modelSchema, orders []validatedOrder) ([]T, [][]any, error) {
+func findCursorRows[T any](scope *gorm.DB, model *modelSchema, orders []validatedOrder, limit int) ([]T, []any, error) {
 	if scope == nil {
 		return nil, nil, fmt.Errorf("gotq: cursor query scope is nil")
 	}
@@ -77,7 +77,7 @@ func findCursorRows[T any](scope *gorm.DB, model *modelSchema, orders []validate
 	}
 	rows := destination.Elem()
 	items := make([]T, 0, rows.Len())
-	keys := make([][]any, 0, rows.Len())
+	var keys []any
 	for rowIndex := 0; rowIndex < rows.Len(); rowIndex++ {
 		row := rows.Index(rowIndex)
 		item := row.Field(0).Interface().(T)
@@ -90,14 +90,18 @@ func findCursorRows[T any](scope *gorm.DB, model *modelSchema, orders []validate
 			}
 		}
 		items = append(items, item)
-		rowKeys := make([]any, len(orders))
-		for orderIndex := range orders {
-			value := row.Field(orderIndex + 1)
-			if !value.IsNil() {
-				rowKeys[orderIndex] = value.Elem().Interface()
+		// Only the last returned row contributes to the next cursor. Keep the
+		// lookahead and model hooks unchanged, but avoid boxing keys for every
+		// row (and avoid extracting any keys on a terminal page).
+		if rows.Len() > limit && rowIndex == limit-1 {
+			keys = make([]any, len(orders))
+			for orderIndex := range orders {
+				value := row.Field(orderIndex + 1)
+				if !value.IsNil() {
+					keys[orderIndex] = value.Elem().Interface()
+				}
 			}
 		}
-		keys = append(keys, rowKeys)
 	}
 	return items, keys, nil
 }

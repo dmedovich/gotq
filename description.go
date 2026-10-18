@@ -66,6 +66,7 @@ type EndpointDescription struct {
 	Count                bool                  `json:"count"`
 	Search               bool                  `json:"search"`
 	CompatibilityAliases bool                  `json:"compatibilityAliases"`
+	DefaultSort          string                `json:"defaultSort,omitempty"`
 }
 
 // Describe returns a detached public description. Mutating its slices cannot
@@ -176,6 +177,7 @@ func (e *Engine[T]) Describe() EndpointDescription {
 		Count:                e.config.AllowCount,
 		Search:               e.config.Search != nil,
 		CompatibilityAliases: e.config.AllowCompatibilityAliases,
+		DefaultSort:          e.config.DefaultSort,
 	}
 }
 

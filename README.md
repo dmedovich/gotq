@@ -43,6 +43,7 @@ users, err := query.New(db, query.Config[User]{
 		Expose("age", query.Filterable(query.Eq, query.Gt, query.Gte, query.Lt, query.Lte)).
 		Expose("createdAt", query.Filterable(), query.Sortable()),
 	DefaultLimit: 25,
+	DefaultSort:  "-createdAt",
 	MaxLimit:     100,
 	MaxOffset:    100_000,
 	AllowCount:   true,

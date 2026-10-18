@@ -37,6 +37,12 @@ Canonical parameters use standard OpenAPI schemas. `x-gotq-fields`,
 byte-limit semantics that JSON Schema cannot express accurately. Enabled
 compatibility aliases are emitted as deprecated parameters.
 
+`filter` is also emitted when the only filterable fields belong to to-many
+relationships. Such fields remain nested in `x-gotq-schema` and use `any`/`all`
+quantifiers, for example `orders/any(o: o/total gte 100)`; they are not advertised
+as scalar sort/filter paths in `x-gotq-fields`. A configured `DefaultSort` is
+included as the OpenAPI `sort` parameter's default.
+
 ## Validate policy in application CI
 
 Bind the complete endpoint config using the application's actual GORM setup:

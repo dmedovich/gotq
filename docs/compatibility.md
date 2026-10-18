@@ -1,30 +1,28 @@
 # Compatibility policy
 
-Status: stable v1.0 support contract
-Date: 2026-07-16
+Status: v1 compatibility contract; current dependency validation targets
+Updated: 2026-10-18
 
 ## Go and GORM
 
-- The minimum source-compatibility line is the latest Go 1.23 patch.
-- CI tests Go 1.23 compatibility plus the security-supported Go 1.25.12 and
-  Go 1.26.5 toolchains.
+- The minimum Go version declared by the library is Go 1.25.0.
+- CI targets Go 1.25.14 for source compatibility and Go 1.26.9 / Go 1.27.2
+  for supported production toolchains.
 - The supported and tested GORM line begins at v1.31.2.
-- SQLite, PostgreSQL, and MySQL GORM drivers are v1.6.0.
+- SQLite and MySQL GORM drivers are v1.6.0; PostgreSQL is v1.6.3.
 
-The release module pins GORM v1.31.2 and the three v1.6.0 drivers. A newer
+The module pins GORM v1.31.2 and the driver versions above. A newer
 patch/minor is supported only after the same test, race, real-dialect, and API
 campaign passes and the compatibility table is updated. Dependency automation
 proposes updates; it does not silently expand the support claim.
 
-Go 1.23 is retained as a compile/source compatibility lane but is no longer a
-security-supported upstream Go line. Production binaries must use a currently
-supported Go release with all security patches; for this release that means
-Go 1.25.12 or Go 1.26.5. The release vulnerability scan is pinned to Go 1.26.5.
-This distinction lets libraries with an older module baseline compile while
-preventing an end-of-life standard library from being represented as safe for
-deployment.
-The declared source-compatibility range ends at Go 1.26.5 until a newer
-toolchain completes CI; future Go releases are not silently claimed.
+Go 1.25 is a source-compatibility lane, not a security-supported production
+toolchain. Production binaries must use a currently supported Go release with
+all security patches. The release vulnerability scan uses Go 1.27.2.
+See the [upstream release policy and security fixes](https://go.dev/doc/devel/release).
+These are validation targets for the current branch; a release support claim
+requires its complete CI campaign to pass. Future toolchains are not silently
+claimed.
 
 ## Database dialects
 

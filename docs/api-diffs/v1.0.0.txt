@@ -1,0 +1,12 @@
+Baseline: v1.0.0 (604fbfb1c3530768dba75751777fe9c3bc1ee779)
+Compatible changes:
+- Config.DefaultSort: added
+- Config.Observe: added
+- EndpointDescription.DefaultSort: added
+- Observation: added
+- ObserverFunc: added
+- PhaseCount: added
+- PhaseData: added
+- PhaseParse: added
+- PhaseValidate: added
+- QueryPhase: added

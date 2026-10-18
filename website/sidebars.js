@@ -13,6 +13,7 @@ const sidebars = {
     'limits-and-count',
     'examples',
     'adoption-tooling',
+    'observability',
     'api-reference',
     'compatibility',
     'stability-policy',

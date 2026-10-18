@@ -15,7 +15,7 @@ func TestReleaseDependencySupportMatrix(t *testing.T) {
 	want := map[string]string{
 		"gorm.io/gorm":            "v1.31.2",
 		"gorm.io/driver/sqlite":   "v1.6.0",
-		"gorm.io/driver/postgres": "v1.6.0",
+		"gorm.io/driver/postgres": "v1.6.3",
 		"gorm.io/driver/mysql":    "v1.6.0",
 	}
 	for dependency, version := range want {

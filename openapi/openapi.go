@@ -123,12 +123,15 @@ func NewOperation(description query.EndpointDescription) (Operation, error) {
 	filterFields, sortFields := collectFieldPolicies(description.Schema, "")
 
 	parameters := make([]Parameter, 0, 9)
-	if len(filterFields) > 0 {
-		parameters = append(parameters, stringParameter("filter", "Boolean filter expression in gotq "+query.SyntaxVersion+" syntax", description.Limits.MaxFilterBytes, filterFields))
+	if hasFilterableFields(description.Schema) {
+		parameters = append(parameters, stringParameter("filter", "Boolean filter expression in gotq "+query.SyntaxVersion+" syntax; to-many relationships use any/all quantifiers (for example orders/any(o: o/total gte 100)). See x-gotq-schema for enabled relationships and operators", description.Limits.MaxFilterBytes, filterFields))
 	}
 	if len(sortFields) > 0 {
 		sortParameter := stringParameter("sort", "Comma-separated public fields; prefix a field with '-' for descending order", 0, sortFields)
 		sortParameter.XGotQMaxTerms = description.Limits.MaxSortTerms
+		if description.DefaultSort != "" {
+			sortParameter.Schema.Default = description.DefaultSort
+		}
 		parameters = append(parameters, sortParameter)
 	}
 	zero := 0
@@ -252,4 +255,20 @@ func collectFieldPolicies(description query.SchemaDescription, prefix string) (f
 		sortFields = append(sortFields, nestedSort...)
 	}
 	return filterFields, sortFields
+}
+
+// Collection fields belong to a quantifier scope, not to the flattened scalar
+// paths in x-gotq-fields. They still make the filter parameter available.
+func hasFilterableFields(description query.SchemaDescription) bool {
+	for _, field := range description.Fields {
+		if field.Filterable {
+			return true
+		}
+	}
+	for _, relationship := range description.Relationships {
+		if hasFilterableFields(relationship.Schema) {
+			return true
+		}
+	}
+	return false
 }

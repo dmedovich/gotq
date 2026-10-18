@@ -61,7 +61,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.26.5'
+          go-version: '1.27.2'
           cache: true
           cache-dependency-path: |
             go.sum
@@ -117,6 +117,7 @@ jobs:
         run: |
           go mod download
           go mod verify
+          go mod tidy -diff
           go test ./...
 
       - name: Verify application examples
@@ -138,7 +139,7 @@ jobs:
       - name: Scan Go dependencies and reachable code
         uses: golang/govulncheck-action@v1
         with:
-          go-version-input: '1.26.5'
+          go-version-input: '1.27.2'
           check-latest: false
           go-package: ./...
           cache-dependency-path: go.sum
@@ -149,7 +150,7 @@ jobs:
           NO_UPDATE_NOTIFIER: 1
         run: |
           npm ci --ignore-scripts
-          npm audit --audit-level=moderate
+          npm run audit:ci
           npm run build
 
   publish:

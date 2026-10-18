@@ -23,6 +23,10 @@ func ValidateConfig[T any](db *gorm.DB, config Config[T]) error
 
 Session provides `Apply` and `List` using its base scope.
 
+`Config.DefaultSort` configures a startup-validated fallback sort.
+`Config.Observe` optionally receives timing and error-code events from `List`;
+see [Observability](observability.md). Both are disabled by their zero values.
+
 ## Policy
 
 ```go

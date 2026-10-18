@@ -127,3 +127,63 @@ func fieldPolicyNames(fields []FieldPolicy) []string {
 	}
 	return names
 }
+
+func TestNewOperationIncludesCollectionOnlyFilter(t *testing.T) {
+	leaf := query.SchemaDescription{Fields: []query.FieldDescription{{Name: "total", Kind: query.Int, Filterable: true, Sortable: true, Operators: []query.ComparisonOperator{query.Gte}}}}
+	collection := query.RelationshipDescription{Name: "orders", Cardinality: query.RelationshipMany, Filterable: true, Schema: leaf}
+	for _, nested := range []bool{false, true} {
+		schema := query.SchemaDescription{Relationships: []query.RelationshipDescription{collection}}
+		if nested {
+			schema = query.SchemaDescription{Relationships: []query.RelationshipDescription{{Name: "account", Cardinality: query.RelationshipOne, Filterable: true, Schema: schema}}}
+		}
+		description := query.EndpointDescription{SyntaxVersion: query.SyntaxVersion, Schema: schema, Pagination: query.PaginationDescription{DefaultLimit: 10, MaxLimit: 100, MaxOffset: 100}, Limits: query.Limits{MaxFilterBytes: 512}}
+		op, err := NewOperation(description)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Join(parameterNames(op.Parameters), ","); got != "filter,limit,offset" {
+			t.Fatalf("nested=%v parameters=%s", nested, got)
+		}
+		filter := op.Parameters[0]
+		if len(filter.XGotQFields) != 0 || filter.XGotQMaxBytes != 512 {
+			t.Fatalf("collection fields leaked as scalar paths: %#v", filter)
+		}
+		if !strings.Contains(filter.Description, "any/all") || !strings.Contains(filter.Description, "x-gotq-schema") {
+			t.Fatal("missing quantifier guidance")
+		}
+		encoded, err := json.Marshal(op.XGotQSchema)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(encoded), `"total"`) || !strings.Contains(string(encoded), `"gte"`) {
+			t.Fatal("missing nested field policy")
+		}
+	}
+	description := query.EndpointDescription{SyntaxVersion: query.SyntaxVersion, Pagination: query.PaginationDescription{DefaultLimit: 1, MaxLimit: 10, MaxOffset: 10}, Schema: query.SchemaDescription{Relationships: []query.RelationshipDescription{{Name: "orders", Cardinality: query.RelationshipMany, Schema: query.SchemaDescription{Fields: []query.FieldDescription{{Name: "id", Kind: query.Uint, Sortable: true}}}}}}}
+	op, err := NewOperation(description)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(parameterNames(op.Parameters), ","); got != "limit,offset" {
+		t.Fatalf("empty filter policy advertises parameters: %s", got)
+	}
+}
+
+func TestNewOperationDescribesDefaultSort(t *testing.T) {
+	d := query.EndpointDescription{SyntaxVersion: query.SyntaxVersion, DefaultSort: "-name", Schema: query.SchemaDescription{Fields: []query.FieldDescription{{Name: "name", Kind: query.String, Sortable: true}}}, Pagination: query.PaginationDescription{DefaultLimit: 1, MaxLimit: 10, MaxOffset: 100}, Limits: query.Limits{MaxSortTerms: 2}}
+	op, err := NewOperation(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if op.Parameters[0].Name != "sort" || op.Parameters[0].Schema.Default != "-name" {
+		t.Fatalf("sort=%#v", op.Parameters[0])
+	}
+	d.DefaultSort = ""
+	op, err = NewOperation(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if op.Parameters[0].Schema.Default != nil {
+		t.Fatal("empty default changed the existing wire shape")
+	}
+}

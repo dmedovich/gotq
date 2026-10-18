@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['1.25.12', '1.26.5']
+        go: ['1.25.14', '1.26.9', '1.27.2']
     steps:
       - uses: actions/checkout@v7
         with:
@@ -57,7 +57,7 @@ jobs:
           }'
 
       - name: Upload coverage
-        if: matrix.go == '1.26.5'
+        if: matrix.go == '1.27.2'
         uses: actions/upload-artifact@v7
         with:
           name: coverage
@@ -76,7 +76,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.26.5'
+          go-version: '1.27.2'
           cache: true
           cache-dependency-path: go.sum
 
@@ -116,7 +116,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.25.12'
+          go-version: '1.25.14'
           cache: true
           cache-dependency-path: examples/frameworks/go.sum
 
@@ -133,6 +133,7 @@ jobs:
         run: |
           go mod download
           go mod verify
+          go mod tidy -diff
           go test ./...
 
   application-examples:
@@ -146,7 +147,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.26.5'
+          go-version: '1.27.2'
           cache: true
           cache-dependency-path: examples/production/go.sum
 
@@ -170,7 +171,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: '1.26.5'
+          go-version: '1.27.2'
           cache: true
           cache-dependency-path: go.sum
 
@@ -178,7 +179,9 @@ jobs:
         run: go install golang.org/x/exp/cmd/apidiff@v0.0.0-20250620022241-b7579e27df2b
 
       - name: Verify reviewed public API diff
-        run: scripts/check-api-compat.sh
+        run: |
+          scripts/test-api-compat.sh
+          scripts/check-api-compat.sh
 
   documentation:
     name: documentation build and audit
@@ -198,7 +201,7 @@ jobs:
           NO_UPDATE_NOTIFIER: 1
         run: |
           npm ci --ignore-scripts
-          npm audit --audit-level=moderate
+          npm run audit:ci
           npm run build
 
   fuzz-smoke:
@@ -210,7 +213,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@v7
         with:
-          go-version: '1.26.5'
+          go-version: '1.27.2'
           cache: true
           cache-dependency-path: go.sum
       - name: Fuzz lexer
@@ -261,7 +264,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@v7
         with:
-          go-version: '1.26.5'
+          go-version: '1.27.2'
           cache: true
           cache-dependency-path: go.sum
       - name: Run real-dialect conformance
@@ -280,7 +283,7 @@ jobs:
       - name: Scan Go dependencies and reachable code
         uses: golang/govulncheck-action@v1
         with:
-          go-version-input: '1.26.5'
+          go-version-input: '1.27.2'
           check-latest: false
           go-package: ./...
           cache-dependency-path: go.sum

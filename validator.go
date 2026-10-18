@@ -194,14 +194,14 @@ func inspectAST(root Expr, source string, limits Limits) *Error {
 			if expr == nil {
 				return queryValidationError(CodeInvalidSyntax, "filter", source, 0, "comparison expression is nil", "")
 			}
-			if len(expr.Literal.Raw) > limits.MaxLiteralBytes {
+			if literalBytes(expr.Literal) > limits.MaxLiteralBytes {
 				return queryValidationError(CodeLimitExceeded, "filter", source, expr.Literal.Source.Start, fmt.Sprintf("literal must not exceed %d bytes", limits.MaxLiteralBytes), expr.Field)
 			}
 			if len(expr.Literals) > limits.MaxInValues {
 				return queryValidationError(CodeLimitExceeded, "filter", source, expr.Source.Start, fmt.Sprintf("in list contains more than %d values", limits.MaxInValues), expr.Field)
 			}
 			for _, literal := range expr.Literals {
-				if len(literal.Raw) > limits.MaxLiteralBytes {
+				if literalBytes(literal) > limits.MaxLiteralBytes {
 					return queryValidationError(CodeLimitExceeded, "filter", source, literal.Source.Start, fmt.Sprintf("literal must not exceed %d bytes", limits.MaxLiteralBytes), expr.Field)
 				}
 			}
@@ -590,6 +590,12 @@ func invalidRelationship(parameter, source string, offset int, path, message str
 
 func literalPresent(literal Literal) bool {
 	return literal.Kind != StringLiteral || literal.Raw != "" || literal.Value != nil || literal.Source != (Span{})
+}
+
+func literalBytes(literal Literal) int {
+	// Hand-built ASTs may provide a decoded string without its original syntax.
+	text, _ := literal.Value.(string)
+	return max(len(literal.Raw), len(text))
 }
 
 func literalValidationError(field *modelField, expr *ComparisonExpr, literal Literal, source string, cause error) *Error {

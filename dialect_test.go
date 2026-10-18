@@ -334,6 +334,31 @@ func runRelationshipDialectIntegration(t *testing.T, dialector gorm.Dialector) {
 	if want := []uint{1, 4, 2, 3, 5}; !reflect.DeepEqual(ids, want) {
 		t.Fatalf("relationship dialect cursor IDs = %v, want %v", ids, want)
 	}
+	config := engine.config
+	config.DefaultSort = "company/name"
+	defaults, err := New(db, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values = url.Values{"limit": {"2"}, "count": {"true"}}
+	var defaultIDs []uint
+	for pageNumber := 0; pageNumber < 5; pageNumber++ {
+		page, err := defaults.List(context.Background(), values)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if page.Total == nil || *page.Total != 5 {
+			t.Fatalf("default-sort relationship count = %#v", page.Total)
+		}
+		defaultIDs = append(defaultIDs, relationshipUserIDs(page.Items)...)
+		if !page.Page.HasMore {
+			break
+		}
+		values.Set("cursor", page.Page.NextCursor)
+	}
+	if !reflect.DeepEqual(defaultIDs, ids) {
+		t.Fatalf("default relationship order = %v, explicit order = %v", defaultIDs, ids)
+	}
 }
 
 func dropRelationshipTables(t *testing.T, db *gorm.DB) {
@@ -408,6 +433,22 @@ func runDialectIntegration(t *testing.T, dialector gorm.Dialector) {
 	}
 	if next.Total == nil || *next.Total != 3 || len(next.Items) != 1 || next.Items[0].ID != 3 || next.Page.HasMore {
 		t.Fatalf("cursor continuation = %#v", next)
+	}
+	config := engine.config
+	config.DefaultSort = "-age"
+	defaults, err := New(db, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaultValues := url.Values{"filter": {"age gte 20"}, "count": {"true"}}
+	defaultPage, err := defaults.From(db.Where("tenant_id = ?", 1)).List(context.Background(), defaultValues)
+	if err != nil || !reflect.DeepEqual(defaultPage, page) {
+		t.Fatalf("default page = %#v, error = %v, explicit = %#v", defaultPage, err, page)
+	}
+	defaultValues.Set("cursor", page.Page.NextCursor)
+	defaultNext, err := defaults.From(db.Where("tenant_id = ?", 1)).List(context.Background(), defaultValues)
+	if err != nil || !reflect.DeepEqual(defaultNext, next) {
+		t.Fatalf("default continuation = %#v, error = %v, explicit = %#v", defaultNext, err, next)
 	}
 	extended, err := engine.From(db.Where("tenant_id = ?", 1)).List(context.Background(), url.Values{
 		"filter": {"id in (1,2,3) and nickname is not null and name startswith 'A' and age not in (20)"},

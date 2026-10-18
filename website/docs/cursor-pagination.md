@@ -41,6 +41,13 @@ The effective endpoint sort replaces any `Order` already present on the caller
 base scope. Tenant/authorization filters, `Select`, `Omit`, `Distinct`, search,
 and other non-order scopes remain in force.
 
+With `Config.DefaultSort`, clients may omit `sort` on both the first and
+continuation requests. The default and the identical explicit sort produce
+the same cursor signature. Changing the effective sort, including changing a
+server default between requests, invalidates existing cursors; retain an
+explicit client sort when that stability is needed during a rollout. Default
+sorts use the same primary-key tie-breakers and `NULLS LAST` rules.
+
 ## Validation and security
 
 The cursor is canonical unpadded base64url JSON v1 containing an opaque sort

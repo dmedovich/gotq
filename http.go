@@ -45,11 +45,12 @@ func ParseHTTP(values url.Values, options ...ParseOption) (Query, error) {
 	if config.limits.MaxQueryBytes <= 0 || config.limits.MaxFilterBytes <= 0 || config.limits.MaxTokens <= 0 || config.limits.MaxLiteralBytes <= 0 || config.limits.MaxInValues <= 0 || config.limits.MaxLimit <= 0 || config.limits.MaxOffset <= 0 || config.limits.MaxSortTerms <= 0 || config.limits.MaxSearchBytes <= 0 || config.limits.MaxExpressionDepth <= 0 || config.limits.MaxNodes <= 0 || config.limits.MaxPathDepth <= 0 || config.limits.MaxQuantifierDepth <= 0 || config.limits.MaxCursorBytes <= 0 {
 		return Query{}, schemaError("query limits must all be positive", "")
 	}
-	if decodedQueryBytes(values) > config.limits.MaxQueryBytes {
+	queryBytes := decodedQueryBytes(values)
+	if queryBytes > config.limits.MaxQueryBytes {
 		return Query{}, positionedError(CodeLimitExceeded, "query", "", 0, fmt.Sprintf("decoded query must not exceed %d bytes", config.limits.MaxQueryBytes))
 	}
 
-	query := Query{limits: config.limits}
+	query := Query{limits: config.limits, queryBytes: queryBytes}
 	filter, present, err := singleParameter(values, "filter")
 	if err != nil {
 		return Query{}, err

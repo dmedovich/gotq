@@ -15,6 +15,14 @@ The release gate uses the pinned official `apidiff` tool to compare the entire
 module with the previous release tag. The v1 gate rejects an unreviewed change
 to the exported surface.
 
+Incompatible changes fail independently of review records. Compatible
+additions must exactly match `docs/api-diffs/<baseline-tag>.txt`, including the
+baseline commit ID. Generate a candidate record with
+`scripts/check-api-compat.sh --write-review` and review it with the implementation
+in the PR. This mode cannot approve incompatible changes. CI never updates
+records automatically. When a new release becomes the baseline, its own record
+is required only when the API changes again; old records remain as history.
+
 For stable releases:
 
 - patch releases preserve source and behavioral compatibility and contain

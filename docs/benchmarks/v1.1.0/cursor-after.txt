@@ -1,0 +1,60 @@
+goos: linux
+goarch: amd64
+pkg: github.com/dmedovich/gotq
+cpu: AMD Ryzen 5 2600 Six-Core Processor
+BenchmarkCursorPage/id/limit=1-12         	     678	    179167 ns/op	   13292 B/op	     194 allocs/op
+BenchmarkCursorPage/id/limit=1-12         	     688	    175462 ns/op	   13256 B/op	     194 allocs/op
+BenchmarkCursorPage/id/limit=1-12         	     676	    176296 ns/op	   13251 B/op	     194 allocs/op
+BenchmarkCursorPage/id/limit=1-12         	     691	    178230 ns/op	   13284 B/op	     194 allocs/op
+BenchmarkCursorPage/id/limit=1-12         	     668	    178633 ns/op	   13260 B/op	     194 allocs/op
+BenchmarkCursorPage/id/limit=1-12         	     693	    170082 ns/op	   13273 B/op	     194 allocs/op
+BenchmarkCursorPage/id/limit=25-12        	     458	    253601 ns/op	   22727 B/op	     433 allocs/op
+BenchmarkCursorPage/id/limit=25-12        	     470	    261657 ns/op	   22778 B/op	     433 allocs/op
+BenchmarkCursorPage/id/limit=25-12        	     440	    266404 ns/op	   22768 B/op	     433 allocs/op
+BenchmarkCursorPage/id/limit=25-12        	     444	    265400 ns/op	   22754 B/op	     433 allocs/op
+BenchmarkCursorPage/id/limit=25-12        	     416	    281802 ns/op	   22762 B/op	     433 allocs/op
+BenchmarkCursorPage/id/limit=25-12        	     421	    281857 ns/op	   22730 B/op	     433 allocs/op
+BenchmarkCursorPage/id/limit=100-12       	     202	    605684 ns/op	   61299 B/op	    1381 allocs/op
+BenchmarkCursorPage/id/limit=100-12       	     199	    542224 ns/op	   61273 B/op	    1381 allocs/op
+BenchmarkCursorPage/id/limit=100-12       	     207	    560887 ns/op	   61287 B/op	    1381 allocs/op
+BenchmarkCursorPage/id/limit=100-12       	     214	    532061 ns/op	   61336 B/op	    1381 allocs/op
+BenchmarkCursorPage/id/limit=100-12       	     212	    568187 ns/op	   61328 B/op	    1381 allocs/op
+BenchmarkCursorPage/id/limit=100-12       	     180	    582852 ns/op	   61369 B/op	    1381 allocs/op
+BenchmarkCursorPage/name/limit=1-12       	     354	    348074 ns/op	   18281 B/op	     262 allocs/op
+BenchmarkCursorPage/name/limit=1-12       	     350	    365029 ns/op	   18279 B/op	     262 allocs/op
+BenchmarkCursorPage/name/limit=1-12       	     368	    364085 ns/op	   18274 B/op	     262 allocs/op
+BenchmarkCursorPage/name/limit=1-12       	     342	    389250 ns/op	   18318 B/op	     262 allocs/op
+BenchmarkCursorPage/name/limit=1-12       	     320	    364382 ns/op	   18311 B/op	     262 allocs/op
+BenchmarkCursorPage/name/limit=1-12       	     348	    351822 ns/op	   18278 B/op	     262 allocs/op
+BenchmarkCursorPage/name/limit=25-12      	     235	    504393 ns/op	   29905 B/op	     674 allocs/op
+BenchmarkCursorPage/name/limit=25-12      	     214	    481882 ns/op	   29927 B/op	     674 allocs/op
+BenchmarkCursorPage/name/limit=25-12      	     241	    496913 ns/op	   29952 B/op	     674 allocs/op
+BenchmarkCursorPage/name/limit=25-12      	     214	    508869 ns/op	   29923 B/op	     674 allocs/op
+BenchmarkCursorPage/name/limit=25-12      	     244	    471510 ns/op	   29853 B/op	     674 allocs/op
+BenchmarkCursorPage/name/limit=25-12      	     234	    488386 ns/op	   29888 B/op	     674 allocs/op
+BenchmarkCursorPage/name/limit=100-12     	     134	    900741 ns/op	   73310 B/op	    1873 allocs/op
+BenchmarkCursorPage/name/limit=100-12     	     129	    925579 ns/op	   73383 B/op	    1874 allocs/op
+BenchmarkCursorPage/name/limit=100-12     	     123	    964467 ns/op	   73401 B/op	    1874 allocs/op
+BenchmarkCursorPage/name/limit=100-12     	     138	    926421 ns/op	   73303 B/op	    1873 allocs/op
+BenchmarkCursorPage/name/limit=100-12     	     132	    876604 ns/op	   73331 B/op	    1873 allocs/op
+BenchmarkCursorPage/name/limit=100-12     	     136	    881094 ns/op	   73269 B/op	    1873 allocs/op
+BenchmarkCursorPage/-company/name/limit=1-12         	     285	    395584 ns/op	   21182 B/op	     318 allocs/op
+BenchmarkCursorPage/-company/name/limit=1-12         	     296	    427962 ns/op	   21193 B/op	     318 allocs/op
+BenchmarkCursorPage/-company/name/limit=1-12         	     285	    403262 ns/op	   21181 B/op	     318 allocs/op
+BenchmarkCursorPage/-company/name/limit=1-12         	     272	    406681 ns/op	   21203 B/op	     318 allocs/op
+BenchmarkCursorPage/-company/name/limit=1-12         	     285	    412027 ns/op	   21155 B/op	     318 allocs/op
+BenchmarkCursorPage/-company/name/limit=1-12         	     278	    435963 ns/op	   21185 B/op	     318 allocs/op
+BenchmarkCursorPage/-company/name/limit=25-12        	     174	    619015 ns/op	   34503 B/op	     832 allocs/op
+BenchmarkCursorPage/-company/name/limit=25-12        	     194	    627468 ns/op	   34482 B/op	     832 allocs/op
+BenchmarkCursorPage/-company/name/limit=25-12        	     176	    621370 ns/op	   34510 B/op	     832 allocs/op
+BenchmarkCursorPage/-company/name/limit=25-12        	     184	    637832 ns/op	   34564 B/op	     832 allocs/op
+BenchmarkCursorPage/-company/name/limit=25-12        	     186	    704049 ns/op	   34530 B/op	     832 allocs/op
+BenchmarkCursorPage/-company/name/limit=25-12        	     188	    631277 ns/op	   34456 B/op	     832 allocs/op
+BenchmarkCursorPage/-company/name/limit=100-12       	      92	   1312962 ns/op	   82578 B/op	    2325 allocs/op
+BenchmarkCursorPage/-company/name/limit=100-12       	      90	   1358205 ns/op	   82571 B/op	    2325 allocs/op
+BenchmarkCursorPage/-company/name/limit=100-12       	      97	   1277865 ns/op	   82884 B/op	    2326 allocs/op
+BenchmarkCursorPage/-company/name/limit=100-12       	      92	   1203401 ns/op	   82566 B/op	    2325 allocs/op
+BenchmarkCursorPage/-company/name/limit=100-12       	      98	   1319577 ns/op	   82692 B/op	    2325 allocs/op
+BenchmarkCursorPage/-company/name/limit=100-12       	     100	   1304028 ns/op	   82673 B/op	    2325 allocs/op
+PASS
+ok  	github.com/dmedovich/gotq	9.148s
